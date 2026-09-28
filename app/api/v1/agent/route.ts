@@ -6,7 +6,7 @@ import { mockKnowledgeBase } from "@/lib/mock-data";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, conversationId, businessId, context } = body;
+    const { message, businessId } = body;
 
     if (!message || !businessId) {
       return NextResponse.json({ error: "message and businessId are required" }, { status: 400 });
@@ -20,20 +20,16 @@ export async function POST(request: NextRequest) {
         const lowerQ = kb.question.toLowerCase();
         const lowerA = kb.answer.toLowerCase();
         // Simple keyword matching — in prod: use pgvector cosine similarity
-        return lowerMsg.split(" ").some((word) =>
+        return lowerMsg.split(" ").some((word: string) =>
           word.length > 3 && (lowerQ.includes(word) || lowerA.includes(word))
         );
       })
       .slice(0, 3);
 
-    const kbContext = relevantKB.length > 0
-      ? `\n\nRelevant business knowledge:\n${relevantKB.map(kb => `Q: ${kb.question}\nA: ${kb.answer}`).join("\n\n")}`
-      : "";
-
     // ─── Step 2: Classify intent ─────────────────────────────────────────────
     const lowerMsg = message.toLowerCase();
     let intent = "general_question";
-    let leadSignals: { budget?: number; need?: string; timeline?: string } = {};
+    const leadSignals: { budget?: number; need?: string; timeline?: string } = {};
 
     if (lowerMsg.includes("price") || lowerMsg.includes("cost") || lowerMsg.includes("budget") || lowerMsg.includes("$")) {
       intent = "pricing_inquiry";

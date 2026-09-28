@@ -26,9 +26,9 @@ const mockUser: User = {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: null,
-      business: null,
-      isAuthenticated: false,
+      user: mockUser,
+      business: mockBusiness,
+      isAuthenticated: true,
       isLoading: false,
 
       login: async (email: string, password: string) => {
