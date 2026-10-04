@@ -85,88 +85,97 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#0A0E1A]">
+    <div className="min-h-screen bg-[#040810]">
       <div className="mesh-bg" />
       <div className="grid-overlay" />
 
       {/* Navbar */}
-      <nav className="border-b border-white/5 px-6 py-4">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between">
+      <nav className="border-b border-white/6 px-6 py-0 bg-[#040810]/80 backdrop-blur-xl sticky top-0 z-40">
+        <div className="max-w-[1280px] mx-auto flex items-center justify-between h-[68px]">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
               <Bot className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm font-bold text-white">OpsAgent</span>
+            <div>
+              <span className="text-[14px] font-bold text-white block leading-none">OpsAgent</span>
+              <span className="text-[10px] text-slate-500 font-medium">by CRESCONIX</span>
+            </div>
           </Link>
           <div className="flex gap-3">
-            <Link href="/login"><Button variant="ghost" size="sm">Log in</Button></Link>
-            <Link href="/signup"><Button variant="primary" size="sm">Start Free</Button></Link>
+            <Link href="/login"><Button variant="ghost" size="sm" className="text-[13px]">Sign In</Button></Link>
+            <Link href="/signup"><Button variant="primary" size="sm" className="text-[13px]" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>Start Free</Button></Link>
           </div>
         </div>
       </nav>
 
       <div className="max-w-[1200px] mx-auto px-6 py-20 relative">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-black text-white mb-4">
-            Simple, transparent pricing
-          </h1>
-          <p className="text-xl text-slate-400 mb-8">Start for free. Scale as you grow. No surprise charges.</p>
+        <div className="text-center mb-14">
+          <div className="section-label section-label-blue mx-auto mb-5">
+            <Zap className="w-3.5 h-3.5" />
+            Transparent Pricing
+          </div>
+          <h1 className="section-title mb-4" style={{fontSize:"clamp(36px,5vw,52px)"}}>Simple, transparent pricing.</h1>
+          <p className="section-subtitle mx-auto mb-10">Start for free. Scale as you grow. No surprise charges or hidden fees.</p>
 
           {/* Billing toggle */}
-          <div className="inline-flex items-center gap-3 p-1 rounded-xl bg-white/5 border border-white/10">
+          <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/8">
             <button
               onClick={() => setAnnual(false)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${!annual ? "bg-white/10 text-white" : "text-slate-500"}`}
+              className={`px-5 py-2 rounded-lg text-[13px] font-semibold transition-all ${!annual ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"}`}
             >
               Monthly
             </button>
             <button
               onClick={() => setAnnual(true)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${annual ? "bg-white/10 text-white" : "text-slate-500"}`}
+              className={`px-5 py-2 rounded-lg text-[13px] font-semibold transition-all flex items-center gap-2 ${annual ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"}`}
             >
               Annual
-              <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold">Save 20%</span>
+              <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold tracking-wide">SAVE 20%</span>
             </button>
           </div>
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-16">
           {plans.map(plan => (
-            <div key={plan.name} className={`glass-card p-6 relative overflow-hidden flex flex-col ${plan.badge ? "!border-blue-500/40 shadow-lg shadow-blue-500/10" : ""}`}>
+            <div key={plan.name} className={`glass-card p-7 relative overflow-hidden flex flex-col ${plan.badge ? "!border-blue-500/35 shadow-xl shadow-blue-500/8" : ""}`}>
               {plan.badge && (
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold px-4 py-1 rounded-bl-xl">
+                <div className="absolute top-0 right-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[9.5px] font-bold px-4 py-1.5 rounded-bl-xl tracking-wide">
                   {plan.badge}
                 </div>
               )}
 
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4 shadow-lg`}>
+              <div className={`w-10 h-10 rounded-[12px] bg-gradient-to-br ${plan.color} flex items-center justify-center mb-5 shadow-lg`}>
                 {plan.icon}
               </div>
-              <h2 className="text-lg font-bold text-white mb-1">{plan.name}</h2>
-              <p className="text-sm text-slate-500 mb-4">{plan.desc}</p>
+              <h2 className="text-[17px] font-bold text-white mb-1">{plan.name}</h2>
+              <p className="text-[13px] text-slate-500 mb-5 leading-relaxed">{plan.desc}</p>
 
-              <div className="mb-6">
+              <div className="mb-6 pb-6 border-b border-white/7">
                 {plan.price.monthly === 0 ? (
-                  <p className="text-3xl font-black text-white">Free</p>
+                  <div>
+                    <p className="text-[38px] font-black text-white leading-none" style={{fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.03em"}}>Free</p>
+                    <p className="text-[12px] text-slate-500 mt-1.5">Forever free · No credit card</p>
+                  </div>
                 ) : (
                   <div>
-                    <p className="text-3xl font-black text-white">
+                    <p className="text-[38px] font-black text-white leading-none" style={{fontFamily:"'Space Grotesk', sans-serif", letterSpacing:"-0.03em"}}>
                       ${annual ? plan.price.annual : plan.price.monthly}
-                      <span className="text-base font-normal text-slate-500">/mo</span>
+                      <span className="text-[15px] font-normal text-slate-500 ml-0.5">/mo</span>
                     </p>
-                    {annual && <p className="text-xs text-emerald-400 mt-0.5">Billed ${plan.price.annual! * 12}/year · Save ${(plan.price.monthly - plan.price.annual!) * 12}/year</p>}
+                    {annual && <p className="text-[12px] text-emerald-400 mt-1.5">Billed ${plan.price.annual! * 12}/year · Save ${(plan.price.monthly - plan.price.annual!) * 12}/year</p>}
+                    {!annual && <p className="text-[12px] text-slate-500 mt-1.5">or ${plan.price.annual}/mo billed annually</p>}
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 mb-6 flex-1">
+              <div className="flex flex-col gap-2.5 mb-7 flex-1">
                 {plan.features.map(f => (
-                  <div key={f.text} className={`flex items-center gap-2 text-sm ${f.included ? "text-slate-300" : "text-slate-600"}`}>
+                  <div key={f.text} className={`flex items-center gap-2.5 text-[13px] ${f.included ? "text-slate-300" : "text-slate-600"}`}>
                     {f.included
                       ? <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      : <X className="w-4 h-4 text-slate-700 flex-shrink-0" />
+                      : <X className="w-3.5 h-3.5 text-slate-700 flex-shrink-0" />
                     }
                     {f.text}
                   </div>
@@ -188,25 +197,28 @@ export default function PricingPage() {
 
         {/* Comparison note */}
         <div className="text-center mb-20">
-          <p className="text-sm text-slate-600">All plans include: SSL encryption · 99.9% uptime SLA · GDPR compliance · Automatic updates</p>
+          <p className="text-[12.5px] text-slate-600">All plans include: SSL encryption · 99.9% uptime SLA · GDPR compliance · Automatic security updates</p>
         </div>
 
         {/* FAQ */}
-        <div className="max-w-[700px] mx-auto">
-          <h2 className="text-3xl font-black text-white text-center mb-10">Frequently asked questions</h2>
+        <div className="max-w-[720px] mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="section-title mb-3" style={{fontSize:"clamp(24px,4vw,36px)"}}>Frequently asked questions</h2>
+            <p className="text-[14px] text-slate-500">Everything you need to know before getting started.</p>
+          </div>
           <div className="flex flex-col gap-2">
             {faqs.map((faq, i) => (
               <div key={i} className="glass-card overflow-hidden">
                 <button
-                  className="w-full flex items-center justify-between p-4 text-left"
+                  className="w-full flex items-center justify-between px-5 py-4 text-left"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 >
-                  <span className="text-sm font-semibold text-slate-200">{faq.q}</span>
-                  <ArrowRight className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform ${openFaq === i ? "rotate-90" : ""}`} />
+                  <span className="text-[13.5px] font-semibold text-slate-200 pr-4">{faq.q}</span>
+                  <ArrowRight className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-200 ${openFaq === i ? "rotate-90" : ""}`} />
                 </button>
                 {openFaq === i && (
-                  <div className="px-4 pb-4 border-t border-white/5 pt-3">
-                    <p className="text-sm text-slate-400">{faq.a}</p>
+                  <div className="px-5 pb-4 border-t border-white/5 pt-3">
+                    <p className="text-[13px] text-slate-400 leading-[1.75]">{faq.a}</p>
                   </div>
                 )}
               </div>
@@ -216,10 +228,10 @@ export default function PricingPage() {
 
         {/* CTA */}
         <div className="text-center mt-20">
-          <p className="text-slate-400 mb-4">Still have questions?</p>
+          <p className="text-[14px] text-slate-500 mb-5">Still have questions? We're happy to help.</p>
           <div className="flex gap-3 justify-center">
-            <Button variant="ghost">Talk to sales</Button>
-            <Link href="/signup"><Button variant="primary" rightIcon={<ArrowRight className="w-4 h-4" />}>Start for free</Button></Link>
+            <Button variant="ghost" className="px-6">Talk to Sales</Button>
+            <Link href="/signup"><Button variant="primary" className="px-6" rightIcon={<ArrowRight className="w-4 h-4" />}>Start for Free</Button></Link>
           </div>
         </div>
       </div>

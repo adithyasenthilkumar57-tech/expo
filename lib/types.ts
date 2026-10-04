@@ -118,6 +118,12 @@ export interface Appointment {
   meetingUrl?: string;
   reminderSent: boolean;
   createdAt: string;
+  serviceType?: string;
+  scheduledAt?: string;
+  duration?: number;
+  locationType?: "VIRTUAL" | "IN_PERSON" | "PHONE";
+  aiHandled?: boolean;
+  notes?: string;
 }
 
 export interface KnowledgeBaseEntry {

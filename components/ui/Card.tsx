@@ -1,357 +1,311 @@
 "use client";
 import { HTMLAttributes, forwardRef } from "react";
+import { cn } from "@/lib/utils";
 
-// ─── Card ────────────────────────────────────────────────────────────────────
+/* ─── Card ────────────────────────────────────────────────────────────────── */
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   interactive?: boolean;
   accent?: boolean;
-  glow?: boolean;
+  hover?: boolean;
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ interactive, accent, glow, className = "", children, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={`
-          card
-          ${interactive ? "card-interactive" : ""}
-          ${accent ? "card-accent" : ""}
-          ${glow ? "shadow-blue" : ""}
-          ${className}
-        `}
-        style={glow ? { boxShadow: "var(--shadow-md), var(--shadow-blue)" } : undefined}
-        {...props}
-      >
-        {children}
-      </div>
-    );
-  }
+  ({ interactive, accent, hover, className = "", children, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "card",
+        interactive && "card-interactive",
+        accent && "card-accent",
+        hover && "card-hover",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
 );
 Card.displayName = "Card";
 
-// ─── MetricCard ──────────────────────────────────────────────────────────────
+/* ─── CardHeader ──────────────────────────────────────────────────────────── */
+export function CardHeader({
+  title,
+  subtitle,
+  icon,
+  action,
+  className = "",
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center justify-between pb-4 mb-6 border-b border-white/6", className)}>
+      <div className="flex items-center gap-3 min-w-0">
+        {icon && (
+          <span className="flex-shrink-0 text-blue-400" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-slate-100 tracking-tight truncate">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-400 mt-1 leading-relaxed truncate">{subtitle}</p>}
+        </div>
+      </div>
+      {action && <div className="flex-shrink-0 ml-4">{action}</div>}
+    </div>
+  );
+}
+
+/* ─── MetricCard ──────────────────────────────────────────────────────────── */
 interface MetricCardProps {
-  title?: string;
-  label?: string;
+  title: string;
   value: string | number;
   subtitle?: string;
-  subtext?: string;
-  subtextColor?: string;
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon?: React.ReactNode;
-  iconColor?: string;
-  iconBg?: string;
-  trend?: { value: string; up?: boolean };
-  accentBar?: string;
+  iconColor?: "blue" | "red" | "amber" | "green" | "purple" | "cyan";
   className?: string;
 }
 
+const iconColorMap: Record<string, { bg: string; text: string; border: string }> = {
+  blue:   { bg: "rgba(59,130,246,0.12)",  text: "#60A5FA", border: "rgba(59,130,246,0.22)" },
+  red:    { bg: "rgba(239,68,68,0.12)",   text: "#F87171", border: "rgba(239,68,68,0.22)" },
+  amber:  { bg: "rgba(245,158,11,0.12)",  text: "#FCD34D", border: "rgba(245,158,11,0.22)" },
+  green:  { bg: "rgba(16,185,129,0.12)",  text: "#34D399", border: "rgba(16,185,129,0.22)" },
+  purple: { bg: "rgba(139,92,246,0.12)",  text: "#A78BFA", border: "rgba(139,92,246,0.22)" },
+  cyan:   { bg: "rgba(6,182,212,0.12)",   text: "#67E8F9", border: "rgba(6,182,212,0.22)" },
+};
+
 export function MetricCard({
   title,
-  label,
   value,
   subtitle,
-  subtext,
-  subtextColor,
   change,
   changeType = "positive",
   icon,
   iconColor = "blue",
-  iconBg,
-  trend,
-  accentBar,
   className = "",
 }: MetricCardProps) {
-  const displayTitle = title || label || "";
-  const displaySubtext = subtitle || subtext || "";
-
-  // Color mappings
-  const colorStyles: Record<string, { bg: string; text: string; border: string; glow: string }> = {
-    red: {
-      bg: "rgba(239, 68, 68, 0.12)",
-      text: "#F87171",
-      border: "rgba(239, 68, 68, 0.25)",
-      glow: "rgba(239, 68, 68, 0.15)",
-    },
-    blue: {
-      bg: "rgba(59, 130, 246, 0.12)",
-      text: "#60A5FA",
-      border: "rgba(59, 130, 246, 0.25)",
-      glow: "rgba(59, 130, 246, 0.15)",
-    },
-    amber: {
-      bg: "rgba(245, 158, 11, 0.12)",
-      text: "#FBBF24",
-      border: "rgba(245, 158, 11, 0.25)",
-      glow: "rgba(245, 158, 11, 0.15)",
-    },
-    green: {
-      bg: "rgba(16, 185, 129, 0.12)",
-      text: "#34D399",
-      border: "rgba(16, 185, 129, 0.25)",
-      glow: "rgba(16, 185, 129, 0.15)",
-    },
-  };
-
-  const currentTheme = colorStyles[iconColor] || {
-    bg: iconBg || "rgba(59, 130, 246, 0.12)",
-    text: iconColor.startsWith("#") ? iconColor : "#60A5FA",
-    border: "rgba(255, 255, 255, 0.1)",
-    glow: "rgba(59, 130, 246, 0.15)",
+  const colors = iconColorMap[iconColor] ?? iconColorMap.blue;
+  const changeStyles = {
+    positive: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+    negative: "text-red-400 bg-red-500/10 border-red-500/25",
+    neutral:  "text-slate-400 bg-white/5 border-white/10",
   };
 
   return (
-    <div
-      className={`glass-card p-5 relative overflow-hidden group hover:scale-[1.01] transition-all duration-300 ${className}`}
-      style={{
-        boxShadow: `0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
-      }}
-    >
-      {/* Subtle top edge glow */}
-      <div
-        className="absolute top-0 left-0 right-0 h-[2px] opacity-70 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background: accentBar || `linear-gradient(90deg, transparent, ${currentTheme.text}, transparent)`,
-        }}
-      />
-
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wider uppercase text-slate-400 mb-1 truncate">
-            {displayTitle}
-          </p>
-          <div className="flex items-baseline gap-2">
-            <span
-              className="text-3xl font-extrabold tracking-tight text-white"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+    <div className={cn("glass-card p-5 sm:p-6 rounded-2xl flex flex-col justify-between gap-4 border border-white/8 shadow-md min-h-[160px]", className)}>
+      <div>
+        <div className="flex items-center justify-between gap-3 mb-2.5">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{title}</span>
+          {icon && (
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+              style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}
+              aria-hidden="true"
             >
-              {value}
-            </span>
-          </div>
+              {icon}
+            </div>
+          )}
         </div>
 
-        {icon && (
-          <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110"
-            style={{
-              background: currentTheme.bg,
-              color: currentTheme.text,
-              border: `1px solid ${currentTheme.border}`,
-              boxShadow: `0 0 15px ${currentTheme.glow}`,
-            }}
-          >
-            {icon}
-          </div>
+        <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">{value}</p>
+
+        {subtitle && (
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed">{subtitle}</p>
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-white/5 text-xs">
-        {displaySubtext && (
-          <p className="text-slate-400 truncate font-medium" style={{ color: subtextColor }}>
-            {displaySubtext}
-          </p>
-        )}
-
-        {change && (
-          <span
-            className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full text-[11px] flex-shrink-0 ${
-              changeType === "positive"
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : changeType === "negative"
-                ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
-                : "bg-slate-700/40 text-slate-300 border border-slate-600/40"
-            }`}
-          >
-            {changeType === "positive" ? "↑" : changeType === "negative" ? "↓" : "•"} {change}
+      {change && (
+        <div className="pt-2.5 border-t border-white/6 flex items-center">
+          <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md border font-mono", changeStyles[changeType])}>
+            {change}
           </span>
-        )}
-
-        {trend && (
-          <span
-            className="inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full text-[11px] flex-shrink-0 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-          >
-            {trend.up !== false ? "↑" : "↓"} {trend.value}
-          </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Avatar ──────────────────────────────────────────────────────────────────
+/* ─── Avatar ──────────────────────────────────────────────────────────────── */
 const AVATAR_COLORS = [
   "from-blue-500 to-indigo-600",
   "from-violet-500 to-purple-600",
-  "from-rose-500 to-pink-600",
   "from-emerald-500 to-teal-600",
-  "from-amber-500 to-orange-600",
+  "from-orange-500 to-amber-600",
+  "from-rose-500 to-pink-600",
   "from-cyan-500 to-blue-600",
 ];
 
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 interface AvatarProps {
   name: string;
-  src?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
+  src?: string;
   className?: string;
 }
 
-const sizePx: Record<string, string> = {
-  xs: "24px", sm: "30px", md: "36px", lg: "44px", xl: "56px",
-};
-const sizeFontPx: Record<string, string> = {
-  xs: "9px", sm: "11px", md: "13px", lg: "16px", xl: "20px",
+const avatarSizes = {
+  xs: { wrap: "w-6 h-6", text: "text-[9px]" },
+  sm: { wrap: "w-8 h-8", text: "text-[11px]" },
+  md: { wrap: "w-10 h-10", text: "text-sm" },
+  lg: { wrap: "w-12 h-12", text: "text-base" },
+  xl: { wrap: "w-16 h-16", text: "text-xl" },
 };
 
-export function Avatar({ name, src, size = "md", className = "" }: AvatarProps) {
-  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  const colorIdx = name.charCodeAt(0) % AVATAR_COLORS.length;
-  const wh = sizePx[size];
+export function Avatar({ name, size = "md", src, className = "" }: AvatarProps) {
+  const { wrap, text } = avatarSizes[size];
+  const initials = name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() || "")
+    .join("");
+  const colorClass = getAvatarColor(name);
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={cn("rounded-full object-cover flex-shrink-0", wrap, className)}
+      />
+    );
+  }
+
   return (
     <div
-      className={`rounded-full flex items-center justify-center flex-shrink-0 font-bold bg-gradient-to-br ${AVATAR_COLORS[colorIdx]} ${className}`}
-      style={{ width: wh, height: wh, fontSize: sizeFontPx[size], color: "#fff" }}
+      className={cn(
+        `bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 shadow-sm`,
+        wrap,
+        text,
+        className
+      )}
+      aria-label={name}
+      role="img"
     >
-      {src ? <img src={src} alt={name} style={{ width: wh, height: wh, borderRadius: "50%", objectFit: "cover" }} /> : initials}
+      {initials}
     </div>
   );
 }
 
-// ─── Badge ───────────────────────────────────────────────────────────────────
+/* ─── Badge ───────────────────────────────────────────────────────────────── */
 interface BadgeProps {
-  variant?: "hot" | "warm" | "cold" | "success" | "warning" | "error" | "info" | "purple" | "neutral";
   children: React.ReactNode;
-  dot?: boolean;
+  variant?: "hot" | "warm" | "cold" | "success" | "warning" | "error" | "info" | "purple" | "neutral";
   className?: string;
 }
 
-const badgeVariants: Record<string, string> = {
-  hot: "badge-hot", warm: "badge-warm", cold: "badge-cold",
-  success: "badge-success", warning: "badge-warning", error: "badge-error",
-  info: "badge-info", purple: "badge-purple", neutral: "badge-neutral",
-};
-
-const dotColors: Record<string, string> = {
-  hot: "bg-red-400", warm: "bg-amber-400", cold: "bg-blue-400",
-  success: "bg-emerald-400", warning: "bg-amber-400", error: "bg-red-400",
-  info: "bg-blue-400", purple: "bg-purple-400", neutral: "bg-slate-400",
-};
-
-export function Badge({ variant = "neutral", children, dot, className = "" }: BadgeProps) {
+export function Badge({ children, variant = "neutral", className = "" }: BadgeProps) {
   return (
-    <span className={`badge ${badgeVariants[variant]} ${className}`}>
-      {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotColors[variant]}`} />}
+    <span className={cn(`badge badge-${variant}`, className)}>
       {children}
     </span>
   );
 }
 
-// ─── EmptyState ──────────────────────────────────────────────────────────────
+/* ─── EmptyState ──────────────────────────────────────────────────────────── */
 interface EmptyStateProps {
   icon?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;
-}
-
-export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      {icon && (
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)", color: "var(--text-muted)" }}>
-          {icon}
-        </div>
-      )}
-      <p className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>{title}</p>
-      {description && <p className="text-sm mb-6 max-w-xs" style={{ color: "var(--text-muted)" }}>{description}</p>}
-      {action}
-    </div>
-  );
-}
-
-// ─── CardHeader ─────────────────────────────────────────────────────────────
-interface CardHeaderProps {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
-  action?: React.ReactNode;
   className?: string;
 }
 
-export function CardHeader({ title, subtitle, icon, action, className = "" }: CardHeaderProps) {
+export function EmptyState({ icon, title, description, action, className = "" }: EmptyStateProps) {
   return (
-    <div className={`flex items-start justify-between mb-4 gap-3 ${className}`}>
-      <div className="flex items-center gap-2.5 min-w-0">
-        {icon && (
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/20 flex-shrink-0">
-            {icon}
-          </div>
-        )}
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold tracking-tight text-white truncate">{title}</h3>
-          {subtitle && <p className="text-xs text-slate-400 mt-0.5 truncate">{subtitle}</p>}
+    <div className={cn("flex flex-col items-center justify-center py-20 px-8 text-center", className)}>
+      {icon && (
+        <div
+          className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mb-6 text-slate-400 shadow-lg shadow-black/20"
+          aria-hidden="true"
+        >
+          {icon}
         </div>
-      </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
+      )}
+      <h3 className="text-base font-bold text-slate-100 mb-2 tracking-tight">{title}</h3>
+      {description && (
+        <p className="text-sm text-slate-400 max-w-sm leading-relaxed mb-6">{description}</p>
+      )}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }
 
-// ─── ProgressBar ────────────────────────────────────────────────────────────
+/* ─── LoadingSpinner ──────────────────────────────────────────────────────── */
+export function LoadingSpinner({ size = "md", className = "" }: { size?: "sm" | "md" | "lg"; className?: string }) {
+  const sizes = { sm: "w-5 h-5", md: "w-8 h-8", lg: "w-12 h-12" };
+  return (
+    <div className={cn("flex items-center justify-center", className)} role="status" aria-label="Loading">
+      <div className={cn("rounded-full border-2 border-blue-500/20 border-t-blue-500 anim-spin", sizes[size])} />
+    </div>
+  );
+}
+
+/* ─── ProgressBar ─────────────────────────────────────────────────────────── */
 export function ProgressBar({
   value,
   max = 100,
   className = "",
   color,
+  variant,
 }: {
   value: number;
   max?: number;
   className?: string;
   color?: string;
+  variant?: "default" | "success" | "warning" | "danger" | string;
 }) {
-  const percentage = Math.min(100, Math.max(0, (value / max) * 100));
-  const defaultGradient = percentage >= 70
-    ? "from-emerald-500 to-teal-400"
-    : percentage >= 40
-    ? "from-blue-500 to-cyan-400"
-    : "from-amber-500 to-rose-400";
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  const variantColor =
+    variant === "success"
+      ? "#10B981"
+      : variant === "warning"
+      ? "#F59E0B"
+      : variant === "danger"
+      ? "#EF4444"
+      : undefined;
+  const barColor =
+    color ??
+    variantColor ??
+    (value >= 80 ? "#10B981" : value >= 60 ? "#F59E0B" : "#3B82F6");
 
   return (
-    <div className={`w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden border border-white/5 relative ${className}`}>
+    <div className={cn("progress-track", className)} role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={max}>
       <div
-        className={`h-full rounded-full bg-gradient-to-r ${color || defaultGradient} transition-all duration-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]`}
-        style={{ width: `${percentage}%` }}
+        className="progress-fill"
+        style={{ width: `${pct}%`, background: `${barColor}` }}
       />
     </div>
   );
 }
 
-// ─── LoadingSpinner ──────────────────────────────────────────────────────────
-export function LoadingSpinner({
-  size = "md",
-  className = "",
-}: {
-  size?: "sm" | "md" | "lg";
-  className?: string;
-}) {
-  const sizeMap = {
-    sm: "w-4 h-4 border-2",
-    md: "w-8 h-8 border-2",
-    lg: "w-12 h-12 border-3",
-  };
-  return (
-    <div
-      className={`inline-block animate-spin rounded-full border-blue-500 border-t-transparent ${sizeMap[size]} ${className}`}
-      role="status"
-    >
-      <span className="sr-only">Loading...</span>
-    </div>
-  );
+/* ─── Skeleton ────────────────────────────────────────────────────────────── */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={cn("skeleton", className)} aria-hidden="true" />;
 }
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
-export function Skeleton({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
-  return <div className={`skeleton ${className}`} style={style} />;
+/* ─── Toast Provider ──────────────────────────────────────────────────────── */
+export function ToastContainer({ children }: { children?: React.ReactNode }) {
+  return (
+    <div
+      className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {children}
+    </div>
+  );
 }

@@ -1,396 +1,611 @@
 "use client";
-import { useState } from "react";
-import { mockLeads, mockConversations } from "@/lib/mock-data";
-import { getLeadStatusConfig, formatRelativeTime, formatCurrency, formatDate } from "@/lib/utils";
-import { Avatar, Card, EmptyState, Badge, ProgressBar } from "@/components/ui/Card";
+import { useState, useCallback } from "react";
+import { getLeadStatusConfig, formatRelativeTime, formatCurrency } from "@/lib/utils";
+import { Avatar, EmptyState, ProgressBar } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, Textarea } from "@/components/ui/Input";
+import { toast } from "@/lib/toast";
 import type { Lead, LeadStatus, Conversation, Message } from "@/lib/types";
+import { useAppStore } from "@/lib/store";
 import {
-  Users, Search, Filter, Bot, User, Clock, DollarSign,
+  Users, Search, Bot, Clock, DollarSign,
   Phone, Mail, Tag, ChevronRight, Send, Flame, Thermometer,
-  Snowflake, ArrowLeft, Zap, CheckCircle, UserCheck
+  Snowflake, ArrowLeft, Zap, FileText, Calendar, X, Plus
 } from "lucide-react";
 
-type Tab = "all" | "HOT" | "WARM" | "COLD";
+type Tab = "all" | LeadStatus;
 
-const statusIcons: Record<LeadStatus, React.ReactNode> = {
-  HOT: <Flame className="w-3 h-3" />,
+const STATUS_ICONS: Record<LeadStatus, React.ReactNode> = {
+  HOT:  <Flame className="w-3 h-3" />,
   WARM: <Thermometer className="w-3 h-3" />,
   COLD: <Snowflake className="w-3 h-3" />,
 };
 
+const TABS: { key: Tab; label: string }[] = [
+  { key: "all",  label: "All Leads" },
+  { key: "HOT",  label: "Hot" },
+  { key: "WARM", label: "Warm" },
+  { key: "COLD", label: "Cold" },
+];
+
 export default function LeadsPage() {
+  const { leads, conversations, addLead, updateLead, deleteLead, sendMessage, business } = useAppStore();
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isQualifyingAll, setIsQualifyingAll] = useState(false);
 
-  const filtered = mockLeads.filter((l) => {
-    const matchesTab = activeTab === "all" || l.status === activeTab;
-    const matchesSearch = !search || l.name.toLowerCase().includes(search.toLowerCase()) || l.email.toLowerCase().includes(search.toLowerCase());
-    return matchesTab && matchesSearch;
+  const selectedLead = leads.find((l) => l.id === selectedLeadId) || null;
+
+  const counts: Record<Tab, number> = {
+    all:  leads.length,
+    HOT:  leads.filter((l) => l.status === "HOT").length,
+    WARM: leads.filter((l) => l.status === "WARM").length,
+    COLD: leads.filter((l) => l.status === "COLD").length,
+  };
+
+  const filtered = leads.filter((l) => {
+    const matchTab = activeTab === "all" || l.status === activeTab;
+    const q = search.toLowerCase();
+    const matchSearch = !q || l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q);
+    return matchTab && matchSearch;
   });
 
-  const counts = {
-    all: mockLeads.length,
-    HOT: mockLeads.filter((l) => l.status === "HOT").length,
-    WARM: mockLeads.filter((l) => l.status === "WARM").length,
-    COLD: mockLeads.filter((l) => l.status === "COLD").length,
-  };
-
   const selectedConv = selectedLead
-    ? mockConversations.find((c) => c.leadId === selectedLead.id)
+    ? conversations.find((c) => c.leadId === selectedLead.id) ?? null
     : null;
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
-    setIsSending(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setNewMessage("");
-    setIsSending(false);
+  const handleAddLead = (newLeadData: { name: string; email: string; phone?: string; budget?: number; need?: string }) => {
+    const newLead: Lead = {
+      id: `lead-${Date.now()}`,
+      businessId: business?.id || "biz-001",
+      name: newLeadData.name,
+      email: newLeadData.email,
+      phone: newLeadData.phone,
+      status: "WARM",
+      source: "Manual",
+      budget: newLeadData.budget,
+      need: newLeadData.need,
+      score: 65,
+      tags: ["Direct"],
+      lastContact: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    addLead(newLead);
+    setShowAddModal(false);
+    toast.success(`Lead ${newLead.name} added successfully`);
   };
 
+  const handleQualifyAll = async () => {
+    if (leads.length === 0) {
+      toast.info("No leads to qualify. Add leads first.");
+      return;
+    }
+    setIsQualifyingAll(true);
+    await new Promise((r) => setTimeout(r, 1000));
+    leads.forEach((l) => {
+      if (l.budget && l.budget > 10000) {
+        updateLead(l.id, { status: "HOT", score: Math.max(l.score, 90) });
+      } else if (l.budget && l.budget >= 5000) {
+        updateLead(l.id, { status: "WARM", score: Math.max(l.score, 70) });
+      }
+    });
+    setIsQualifyingAll(false);
+    toast.success("AI qualification complete. Lead scores and statuses updated.");
+  };
+
+  const handleUpdateStatus = (leadId: string, status: LeadStatus) => {
+    updateLead(leadId, { status });
+    toast.info(`Lead status updated to ${status}`);
+  };
+
+  const handleSend = useCallback(async () => {
+    if (!newMessage.trim() || !selectedLead) return;
+    const userText = newMessage.trim();
+    setNewMessage("");
+    setIsSending(true);
+
+    sendMessage(selectedLead.id, userText, "USER");
+    setIsSending(false);
+
+    // Trigger AI response after 900ms
+    setTimeout(() => {
+      sendMessage(
+        selectedLead.id,
+        `Thanks for the update! I have noted "${userText}" and synced the details into your lead profile. Let me know if you need to generate an invoice or schedule a call.`,
+        "AI"
+      );
+    }, 900);
+  }, [newMessage, selectedLead, sendMessage]);
+
   if (selectedLead) {
-    return <LeadDetailView lead={selectedLead} conversation={selectedConv || null} onBack={() => setSelectedLead(null)} newMessage={newMessage} setNewMessage={setNewMessage} isSending={isSending} onSend={handleSendMessage} />;
+    return (
+      <LeadDetailView
+        lead={selectedLead}
+        conversation={selectedConv}
+        onBack={() => setSelectedLeadId(null)}
+        onUpdateStatus={(st) => handleUpdateStatus(selectedLead.id, st)}
+        onDelete={() => {
+          deleteLead(selectedLead.id);
+          setSelectedLeadId(null);
+          toast.info("Lead deleted");
+        }}
+        newMessage={newMessage}
+        setNewMessage={setNewMessage}
+        isSending={isSending}
+        onSend={handleSend}
+      />
+    );
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-[1400px] mx-auto">
+    <div className="page-content flex flex-col gap-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-8 border-b border-white/8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
-            <Users className="w-6 h-6 text-blue-400" />
-            Leads & Inbox
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
+              <Users className="w-5 h-5" aria-hidden="true" />
+            </div>
+            Leads & Pipeline
           </h1>
-          <p className="text-sm text-slate-500">AI-qualified leads and conversation threads</p>
+          <p className="text-sm sm:text-base text-slate-400 mt-2 font-normal leading-relaxed">
+            AI-qualified leads and automated conversational sales threads
+          </p>
         </div>
-        <Button variant="primary" size="sm" leftIcon={<Zap className="w-3.5 h-3.5" />}>
-          AI Qualify All
-        </Button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-4 bg-white/3 rounded-xl p-1 w-fit border border-white/8">
-        {(["all", "HOT", "WARM", "COLD"] as Tab[]).map((tab) => {
-          const labels: Record<Tab, string> = { all: "All Leads", HOT: "Hot", WARM: "Warm", COLD: "Cold" };
-          const colors: Record<Tab, string> = {
-            all: "text-slate-300",
-            HOT: "text-red-400",
-            WARM: "text-amber-400",
-            COLD: "text-blue-400",
-          };
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${activeTab === tab ? "bg-white/10 text-white" : `${colors[tab]} hover:bg-white/5`}`}
+        <div className="flex items-center gap-3 flex-wrap">
+          {leads.length > 0 && (
+            <Button
+              variant="ghost"
+              size="md"
+              leftIcon={<Zap className="w-4 h-4" />}
+              onClick={handleQualifyAll}
+              isLoading={isQualifyingAll}
+              id="ai-qualify-btn"
             >
-              {tab !== "all" && statusIcons[tab as LeadStatus]}
-              {labels[tab]}
-              <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-md">{counts[tab]}</span>
-            </button>
-          );
-        })}
+              AI Qualify All
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="md"
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={() => setShowAddModal(true)}
+            id="add-lead-btn"
+          >
+            Add Lead
+          </Button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <Input
-          placeholder="Search leads by name, email…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          leftElement={<Search className="w-4 h-4" />}
-          className="max-w-sm"
-        />
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Tabs */}
+        <div
+          className="flex items-center gap-1.5 bg-white/[0.03] rounded-2xl p-1.5 w-fit border border-white/8 overflow-x-auto max-w-full"
+          role="tablist"
+          aria-label="Lead filter tabs"
+        >
+          {TABS.map(({ key, label }) => {
+            const count = counts[key];
+            const isActive = activeTab === key;
+            return (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  isActive ? "bg-white/12 text-white shadow-sm" : "text-slate-400 hover:text-slate-200 hover:bg-white/4"
+                }`}
+              >
+                {key !== "all" && STATUS_ICONS[key]}
+                <span>{label}</span>
+                <span className="text-[11px] bg-white/10 px-2 py-0.5 rounded-md font-mono font-bold">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search Bar */}
+        {leads.length > 0 && (
+          <div className="w-full md:w-80">
+            <Input
+              placeholder="Search leads by name, email, or need…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              leftElement={<Search className="w-4 h-4" />}
+              rightElement={
+                search ? (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="text-slate-400 hover:text-slate-200 transition-colors p-1"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ) : null
+              }
+              id="search-leads"
+            />
+          </div>
+        )}
       </div>
 
-      {/* Lead grid */}
+      {/* Leads List */}
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Users className="w-6 h-6" />}
-          title="No leads found"
-          description="Adjust your filters or wait for new leads to come through the widget."
+          icon={<Users className="w-8 h-8" />}
+          title="No leads in pipeline yet"
+          description={
+            search
+              ? "No leads matched your search query."
+              : "Leads captured via your AI website widget or created manually will be organized here with automatic scoring."
+          }
+          action={
+            <Button
+              variant="primary"
+              size="md"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setShowAddModal(true)}
+            >
+              Add First Lead
+            </Button>
+          }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filtered.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} />
-          ))}
+        <div className="space-y-4">
+          {filtered.map((lead) => {
+            const s = getLeadStatusConfig(lead.status);
+            return (
+              <button
+                key={lead.id}
+                className="glass-card p-6 w-full text-left hover:border-blue-500/30 hover:bg-white/[0.035] hover:-translate-y-0.5 transition-all group cursor-pointer !rounded-2xl"
+                onClick={() => setSelectedLeadId(lead.id)}
+                aria-label={`View lead details for ${lead.name}`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <Avatar name={lead.name} size="lg" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <p className="text-base font-bold text-slate-100 group-hover:text-white truncate">
+                          {lead.name}
+                        </p>
+                        <span className={`badge ${s.className}`}>{s.label}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 truncate mt-1 font-normal">{lead.email}</p>
+                    </div>
+                  </div>
+
+                  {/* AI Score */}
+                  <div className="flex items-center gap-5 flex-shrink-0">
+                    <div className="text-right">
+                      <p className="text-[10.5px] text-slate-500 font-bold uppercase tracking-wider">AI Score</p>
+                      <p className={`text-lg font-extrabold font-mono ${lead.score >= 80 ? "text-emerald-400" : lead.score >= 50 ? "text-amber-400" : "text-slate-400"}`}>
+                        {lead.score}/100
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:bg-blue-500/20 transition-all">
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Need & Meta */}
+                {lead.need && (
+                  <p className="text-xs text-slate-300 bg-white/[0.025] rounded-xl px-4 py-2.5 mb-4 border border-white/6 line-clamp-2 leading-relaxed">
+                    &ldquo;{lead.need}&rdquo;
+                  </p>
+                )}
+
+                <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap pt-1 border-t border-white/5">
+                  {lead.budget && (
+                    <span className="flex items-center gap-1.5 font-bold text-slate-200 font-mono px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                      {formatCurrency(lead.budget)} budget
+                    </span>
+                  )}
+                  {lead.timeline && (
+                    <span className="flex items-center gap-1.5 text-slate-300 px-2.5 py-1 rounded-lg bg-white/5 border border-white/8">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+                      {lead.timeline}
+                    </span>
+                  )}
+                  <span className="text-slate-500 ml-auto font-mono text-[11px]">
+                    Last updated {formatRelativeTime(lead.lastContact)}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
+      )}
+
+      {/* Add Lead Modal */}
+      {showAddModal && (
+        <AddLeadModal
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddLead}
+        />
       )}
     </div>
   );
 }
 
-function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
-  const status = getLeadStatusConfig(lead.status);
+/* ─── Add Lead Modal ─────────────────────────────────────────────────── */
+function AddLeadModal({
+  onClose,
+  onAdd,
+}: {
+  onClose: () => void;
+  onAdd: (data: { name: string; email: string; phone?: string; budget?: number; need?: string }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [budget, setBudget] = useState("");
+  const [need, setNeed] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) {
+      toast.error("Please enter a name and email address");
+      return;
+    }
+    onAdd({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim() || undefined,
+      budget: budget ? parseFloat(budget) : undefined,
+      need: need.trim() || undefined,
+    });
+  };
 
   return (
-    <div
-      className="glass-card p-4 cursor-pointer group"
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <Avatar name={lead.name} size="md" />
-          <div>
-            <p className="text-sm font-semibold text-slate-100 group-hover:text-white">{lead.name}</p>
-            <p className="text-xs text-slate-500 flex items-center gap-1">
-              <Mail className="w-3 h-3" />
-              {lead.email}
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="add-lead-title">
+      <div className="glass-card w-full max-w-md p-6 animate-scaleIn">
+        <div className="flex items-center justify-between mb-5">
+          <h2 id="add-lead-title" className="text-base font-bold text-white">Add New Lead</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-white p-1" aria-label="Close dialog">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Full Name" placeholder="e.g., Jennifer Wu" value={name} onChange={(e) => setName(e.target.value)} required id="lead-name-input" />
+          <Input label="Email Address" type="email" placeholder="jennifer@enterprise.com" value={email} onChange={(e) => setEmail(e.target.value)} required id="lead-email-input" />
+          <Input label="Phone (Optional)" type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} id="lead-phone-input" />
+          <Input label="Estimated Budget ($)" type="number" placeholder="10000" value={budget} onChange={(e) => setBudget(e.target.value)} id="lead-budget-input" />
+          <Textarea label="Needs / Project Scope" placeholder="What are they looking for?" value={need} onChange={(e) => setNeed(e.target.value)} id="lead-need-input" className="min-h-[80px]" />
+          <div className="flex justify-end gap-3 pt-3 border-t border-white/6">
+            <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" type="submit">Create Lead</Button>
           </div>
-        </div>
-        <span className={`badge ${status.className} flex items-center gap-1`}>
-          {statusIcons[lead.status]}
-          {status.label}
-        </span>
+        </form>
       </div>
-
-      {/* Score bar */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between text-[10px] mb-1">
-          <span className="text-slate-500">Lead Score</span>
-          <span className="font-semibold" style={{ color: lead.score >= 80 ? "#EF4444" : lead.score >= 60 ? "#F59E0B" : "#3B82F6" }}>{lead.score}/100</span>
-        </div>
-        <ProgressBar value={lead.score} />
-      </div>
-
-      {lead.need && (
-        <p className="text-xs text-slate-400 mb-3 line-clamp-2 bg-white/3 rounded-lg px-2.5 py-2">{lead.need}</p>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 text-[11px] text-slate-500">
-          {lead.budget && (
-            <span className="flex items-center gap-1">
-              <DollarSign className="w-3 h-3" />
-              {formatCurrency(lead.budget)}
-            </span>
-          )}
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {formatRelativeTime(lead.lastContact)}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
-          View <ChevronRight className="w-3 h-3" />
-        </div>
-      </div>
-
-      {lead.tags.length > 0 && (
-        <div className="flex items-center gap-1 mt-2 flex-wrap">
-          {lead.tags.map((tag) => (
-            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/8 text-slate-500">{tag}</span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
+/* ─── Lead Detail View ───────────────────────────────────────────────── */
 function LeadDetailView({
-  lead, conversation, onBack, newMessage, setNewMessage, isSending, onSend
+  lead,
+  conversation,
+  onBack,
+  onUpdateStatus,
+  onDelete,
+  newMessage,
+  setNewMessage,
+  isSending,
+  onSend,
 }: {
   lead: Lead;
   conversation: Conversation | null;
   onBack: () => void;
+  onUpdateStatus: (s: LeadStatus) => void;
+  onDelete: () => void;
   newMessage: string;
   setNewMessage: (v: string) => void;
   isSending: boolean;
   onSend: () => void;
 }) {
-  const status = getLeadStatusConfig(lead.status);
+  const statusCfg = getLeadStatusConfig(lead.status);
 
   return (
-    <div className="p-6 lg:p-8 max-w-[1400px] mx-auto">
-      <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-300 mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" />
+    <div className="page-content space-y-8">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors group px-3 py-1.5 rounded-lg bg-white/5 border border-white/8 w-fit"
+      >
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" aria-hidden="true" />
         Back to Leads
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Lead info sidebar */}
-        <div className="flex flex-col gap-4">
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <Avatar name={lead.name} size="lg" />
-              <div>
-                <h2 className="text-base font-bold text-white">{lead.name}</h2>
-                <span className={`badge ${status.className} flex items-center gap-1 w-fit mt-1`}>
-                  {statusIcons[lead.status]}{status.label}
-                </span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Lead profile & info */}
+        <div className="space-y-6">
+          {/* Profile Card */}
+          <div className="glass-card p-7 !rounded-2xl">
+            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/6">
+              <Avatar name={lead.name} size="xl" />
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-white truncate">{lead.name}</h2>
+                <p className="text-xs text-slate-400 truncate mt-0.5 font-normal">{lead.email}</p>
+                <div className="flex items-center gap-2 mt-3">
+                  <span className={`badge ${statusCfg.className}`}>{statusCfg.label}</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Mail className="w-4 h-4 text-slate-600" />
-                {lead.email}
+            {/* Status Selector */}
+            <div className="mb-6">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Change Status</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(["HOT", "WARM", "COLD"] as LeadStatus[]).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => onUpdateStatus(st)}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      lead.status === st
+                        ? "bg-white/15 border-white/30 text-white shadow-sm"
+                        : "bg-white/[0.02] border-white/6 text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* AI Score */}
+            <div className="mb-6 p-4 rounded-xl bg-white/[0.03] border border-white/8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-400" />
+                  AI Lead Score
+                </span>
+                <span className="text-base font-extrabold font-mono text-white">{lead.score}/100</span>
+              </div>
+              <ProgressBar value={lead.score} variant={lead.score >= 80 ? "success" : lead.score >= 50 ? "warning" : "default"} />
+            </div>
+
+            {/* Metadata list */}
+            <div className="space-y-3.5 text-xs mb-6">
               {lead.phone && (
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <Phone className="w-4 h-4 text-slate-600" />
-                  {lead.phone}
+                <div className="flex items-center gap-3 text-slate-300 p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+                  <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span className="font-mono">{lead.phone}</span>
                 </div>
               )}
               {lead.budget && (
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <DollarSign className="w-4 h-4 text-slate-600" />
-                  Budget: <span className="text-slate-200 font-medium">{formatCurrency(lead.budget)}</span>
+                <div className="flex items-center gap-3 text-slate-300 p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+                  <DollarSign className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span className="font-bold text-slate-100 font-mono">{formatCurrency(lead.budget)} estimated budget</span>
                 </div>
               )}
               {lead.timeline && (
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <Clock className="w-4 h-4 text-slate-600" />
-                  Timeline: <span className="text-slate-200 font-medium">{lead.timeline}</span>
+                <div className="flex items-center gap-3 text-slate-300 p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+                  <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <span>Timeline: {lead.timeline}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Tag className="w-4 h-4 text-slate-600" />
-                Source: <span className="text-slate-200 font-medium">{lead.source}</span>
+              <div className="flex items-center gap-3 text-slate-300 p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+                <Tag className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span>Source: {lead.source}</span>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-white/8">
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-slate-500">Lead Score</span>
-                <span className="font-bold text-slate-200">{lead.score}/100</span>
-              </div>
-              <ProgressBar value={lead.score} />
-            </div>
-          </div>
-
-          {lead.need && (
-            <div className="glass-card p-4">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Need</p>
-              <p className="text-sm text-slate-300">{lead.need}</p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Button variant="primary" size="sm" leftIcon={<Bot className="w-3.5 h-3.5" />} className="w-full">AI Follow-Up</Button>
-            <Button variant="ghost" size="sm" leftIcon={<FileIcon className="w-3.5 h-3.5" />} className="w-full">Create Invoice</Button>
-            <Button variant="ghost" size="sm" leftIcon={<CalendarIcon className="w-3.5 h-3.5" />} className="w-full">Schedule Appointment</Button>
+            <Button variant="danger" size="md" className="w-full" onClick={onDelete}>
+              Delete Lead
+            </Button>
           </div>
         </div>
 
-        {/* Conversation thread */}
-        <div className="lg:col-span-2 glass-card flex flex-col" style={{ height: "calc(100vh - 200px)" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
-            <div>
-              <h3 className="text-sm font-semibold text-white">Conversation Thread</h3>
-              {conversation && (
-                <p className="text-xs text-slate-500">
-                  {conversation.aiHandled ? "AI-handled" : "Manual"} · {conversation.messages.length} messages
-                </p>
+        {/* Right Column: Live Conversation Thread */}
+        <div className="lg:col-span-2">
+          <div className="glass-card flex flex-col h-[650px] !rounded-2xl">
+            {/* Thread Header */}
+            <div className="p-5 border-b border-white/6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white">AI Conversation History</span>
+                  <p className="text-[11px] text-slate-400">Live thread between lead & OpsAgent AI</p>
+                </div>
+              </div>
+              <span className="text-xs text-slate-400 font-mono px-2.5 py-1 rounded-lg bg-white/5 border border-white/8">
+                {conversation?.messages.length || 0} messages
+              </span>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {!conversation || conversation.messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <Bot className="w-8 h-8 text-slate-500 mb-2 opacity-50" />
+                  <p className="text-sm font-semibold text-slate-300 mb-1">No message history yet</p>
+                  <p className="text-xs text-slate-500">Send an initial response below or let the AI engage on website visit.</p>
+                </div>
+              ) : (
+                conversation.messages.map((m) => {
+                  const isAI = m.sender === "AI";
+                  const isUser = m.sender === "USER";
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5 px-1">
+                        <span className="text-xs font-bold text-slate-300">
+                          {m.senderName}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {formatRelativeTime(m.createdAt)}
+                        </span>
+                      </div>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${
+                          isUser
+                            ? "bg-blue-600 text-white rounded-br-sm shadow-lg shadow-blue-600/20"
+                            : isAI
+                            ? "bg-white/[0.06] text-slate-200 border border-white/10 rounded-bl-sm"
+                            : "bg-white/[0.03] text-slate-300 border border-white/6 rounded-bl-sm"
+                        }`}
+                      >
+                        {m.content}
+                      </div>
+                      {m.agentAction && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-400 font-mono px-1">
+                          <Zap className="w-3 h-3" />
+                          {m.agentAction}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
-              <Bot className="w-3 h-3" />
-              AI Active
-            </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
-            {conversation?.messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {!conversation && (
-              <EmptyState
-                icon={<Bot className="w-5 h-5" />}
-                title="No messages yet"
-                description="The AI will respond automatically when this lead reaches out."
-              />
-            )}
-          </div>
-
-          <div className="p-4 border-t border-white/8">
-            <div className="flex items-center gap-2">
-              <input
-                className="input-field flex-1"
-                placeholder="Type a message or let AI handle it…"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={onSend}
-                isLoading={isSending}
-                leftIcon={<Send className="w-3.5 h-3.5" />}
+            {/* Send Input */}
+            <div className="p-4 border-t border-white/6 bg-white/[0.015]">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onSend();
+                }}
+                className="flex items-center gap-3"
               >
-                Send
-              </Button>
+                <input
+                  type="text"
+                  placeholder="Type a message or instruction for the AI agent…"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
+                  id="lead-reply-input"
+                />
+                <Button
+                  variant="primary"
+                  size="md"
+                  type="submit"
+                  disabled={!newMessage.trim() || isSending}
+                  isLoading={isSending}
+                  leftIcon={<Send className="w-4 h-4" />}
+                >
+                  Send
+                </Button>
+              </form>
             </div>
-            <p className="text-[11px] text-slate-600 mt-1.5 text-center">
-              AI will auto-reply unless you&apos;ve taken over this conversation
-            </p>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function MessageBubble({ message }: { message: Message }) {
-  const isAI = message.sender === "AI";
-  const isUser = message.sender === "USER";
-  const isCustomer = message.sender === "CUSTOMER";
-
-  return (
-    <div className={`flex gap-3 ${isUser || isAI ? "justify-end" : "justify-start"}`}>
-      {isCustomer && (
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-1">
-          {message.senderName.charAt(0)}
-        </div>
-      )}
-      <div className={`max-w-[75%]`}>
-        <div className={`${isAI ? "chat-bubble-ai" : isCustomer ? "bg-white/8 border border-white/10 rounded-2xl rounded-tl-sm" : "chat-bubble-user"} px-4 py-2.5`}>
-          <p className="text-sm text-slate-100 whitespace-pre-wrap">{message.content}</p>
-        </div>
-        <div className={`flex items-center gap-2 mt-1 ${isUser || isAI ? "justify-end" : "justify-start"}`}>
-          {isAI && (
-            <span className="text-[10px] text-emerald-500 font-medium flex items-center gap-1">
-              <Bot className="w-2.5 h-2.5" /> AI Agent
-            </span>
-          )}
-          <span className="text-[10px] text-slate-600">{formatRelativeTime(message.createdAt)}</span>
-          {message.agentAction && (
-            <span className="text-[10px] text-blue-500/70 italic">· {message.agentAction}</span>
-          )}
-        </div>
-      </div>
-      {(isAI) && (
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-1">
-          <Bot className="w-3.5 h-3.5 text-white" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Mini icon components to avoid import conflicts
-function FileIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14,2 14,8 20,8" />
-    </svg>
-  );
-}
-
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
   );
 }

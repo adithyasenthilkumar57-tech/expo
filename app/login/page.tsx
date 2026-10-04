@@ -30,7 +30,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-[#040810] flex items-center justify-center p-4 relative">
       <div className="mesh-bg" />
       <div className="grid-overlay" />
 
@@ -52,11 +52,10 @@ export default function LoginPage() {
             <p className="text-sm text-slate-500">Sign in to your OpsAgent dashboard</p>
           </div>
 
-          {/* Demo hint */}
-          <div className="mb-6 p-3 rounded-xl bg-blue-500/8 border border-blue-500/20 flex items-start gap-2">
+          <div className="mb-6 p-3.5 rounded-xl bg-blue-500/7 border border-blue-500/18 flex items-start gap-2.5">
             <Bot className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-400">
-              <strong>Demo mode:</strong> Use any email + any password (6+ chars). Fields are pre-filled for you.
+            <p className="text-[12px] text-blue-300/80 leading-relaxed">
+              <strong className="text-blue-300">Demo mode:</strong> Use any email with any 6+ character password. Fields are pre-filled.
             </p>
           </div>
 

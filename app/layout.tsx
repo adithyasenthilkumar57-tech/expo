@@ -37,6 +37,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+import { ToastContainer } from "@/components/ui/Toast";
+
 export default function RootLayout({
   children,
 }: {
@@ -47,9 +49,14 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&family=Space+Grotesk:wght@400;500;600;700;900&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className="antialiased">
         {children}
+        <ToastContainer />
       </body>
     </html>
   );

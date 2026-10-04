@@ -53,10 +53,10 @@ export function formatRelativeTime(dateStr: string): string {
 }
 
 export function getLeadStatusConfig(status: LeadStatus) {
-  const configs = {
-    HOT: { label: "Hot", className: "badge-hot", dotClass: "hot", color: "#EF4444" },
-    WARM: { label: "Warm", className: "badge-warm", dotClass: "warm", color: "#F59E0B" },
-    COLD: { label: "Cold", className: "badge-cold", dotClass: "cold", color: "#3B82F6" },
+  const configs: Record<LeadStatus, { label: string; className: string; badgeVariant: string; dotClass: string; color: string }> = {
+    HOT:  { label: "Hot",  className: "badge-hot",  badgeVariant: "hot",  dotClass: "hot",  color: "#EF4444" },
+    WARM: { label: "Warm", className: "badge-warm", badgeVariant: "warm", dotClass: "warm", color: "#F59E0B" },
+    COLD: { label: "Cold", className: "badge-cold", badgeVariant: "cold", dotClass: "cold", color: "#3B82F6" },
   };
   return configs[status];
 }
